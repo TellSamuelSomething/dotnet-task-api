@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using TaskAPI.Models;
+using TaskAPI.DTOs;
 using TaskAPI.Services;
 
 namespace TaskAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class TasksController : ControllerBase
@@ -27,16 +29,16 @@ public class TasksController : ControllerBase
     }
 
     [HttpPost]
-    public async Task<IActionResult> Create(TaskItem task)
+    public async Task<IActionResult> Create(CreateTaskRequest request)
     {
-        var created = await _service.CreateAsync(task);
+        var created = await _service.CreateAsync(request);
         return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
     }
 
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, TaskItem task)
+    public async Task<IActionResult> Update(int id, UpdateTaskRequest request)
     {
-        var updated = await _service.UpdateAsync(id, task);
+        var updated = await _service.UpdateAsync(id, request);
         return updated is null ? NotFound() : Ok(updated);
     }
 
