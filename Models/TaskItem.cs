@@ -7,4 +7,5 @@ public class TaskItem
     public string? Description { get; set; }
     public bool IsCompleted { get; set; } = false;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public string OwnerId { get; set; } = string.Empty;
 }

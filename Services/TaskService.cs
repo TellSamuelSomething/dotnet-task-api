@@ -8,15 +8,20 @@ namespace TaskAPI.Services;
 public class TaskService
 {
     private readonly AppDbContext _db;
+    private readonly ILogger<TaskService> _logger;
 
-    public TaskService(AppDbContext db)
+    public TaskService(AppDbContext db, ILogger<TaskService> logger)
     {
         _db = db;
+        _logger = logger;
     }
 
-    public async Task<PagedResult<TaskResponse>> GetAllAsync(TaskQueryParams query)
+    public async Task<PagedResult<TaskResponse>> GetAllAsync(TaskQueryParams query, string ownerId)
     {
-        var tasks = _db.Tasks.AsQueryable();
+        _logger.LogInformation("Fetching tasks for user {OwnerId} - Page: {Page}, PageSize: {PageSize}, Completed: {Completed}, Search: {Search}",
+            ownerId, query.Page, query.PageSize, query.Completed, query.Search);
+
+        var tasks = _db.Tasks.Where(t => t.OwnerId == ownerId);
 
         if (query.Completed.HasValue)
             tasks = tasks.Where(t => t.IsCompleted == query.Completed.Value);
@@ -41,29 +46,46 @@ public class TaskService
         };
     }
 
-    public async Task<TaskResponse?> GetByIdAsync(int id)
+    public async Task<TaskResponse?> GetByIdAsync(int id, string ownerId)
     {
-        var task = await _db.Tasks.FindAsync(id);
+        _logger.LogInformation("Fetching task {Id} for user {OwnerId}", id, ownerId);
+
+        var task = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.OwnerId == ownerId);
+
+        if (task is null)
+            _logger.LogWarning("Task {Id} not found for user {OwnerId}", id, ownerId);
+
         return task is null ? null : ToResponse(task);
     }
 
-    public async Task<TaskResponse> CreateAsync(CreateTaskRequest request)
+    public async Task<TaskResponse> CreateAsync(CreateTaskRequest request, string ownerId)
     {
+        _logger.LogInformation("Creating task '{Title}' for user {OwnerId}", request.Title, ownerId);
+
         var task = new TaskItem
         {
             Title = request.Title,
-            Description = request.Description
+            Description = request.Description,
+            OwnerId = ownerId
         };
 
         _db.Tasks.Add(task);
         await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Task created with ID {Id}", task.Id);
         return ToResponse(task);
     }
 
-    public async Task<TaskResponse?> UpdateAsync(int id, UpdateTaskRequest request)
+    public async Task<TaskResponse?> UpdateAsync(int id, UpdateTaskRequest request, string ownerId)
     {
-        var task = await _db.Tasks.FindAsync(id);
-        if (task is null) return null;
+        _logger.LogInformation("Updating task {Id} for user {OwnerId}", id, ownerId);
+
+        var task = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.OwnerId == ownerId);
+        if (task is null)
+        {
+            _logger.LogWarning("Task {Id} not found for user {OwnerId}", id, ownerId);
+            return null;
+        }
 
         task.Title = request.Title;
         task.Description = request.Description;
@@ -73,13 +95,21 @@ public class TaskService
         return ToResponse(task);
     }
 
-    public async Task<bool> DeleteAsync(int id)
+    public async Task<bool> DeleteAsync(int id, string ownerId)
     {
-        var task = await _db.Tasks.FindAsync(id);
-        if (task is null) return false;
+        _logger.LogInformation("Deleting task {Id} for user {OwnerId}", id, ownerId);
+
+        var task = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.OwnerId == ownerId);
+        if (task is null)
+        {
+            _logger.LogWarning("Task {Id} not found for user {OwnerId}", id, ownerId);
+            return false;
+        }
 
         _db.Tasks.Remove(task);
         await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Task {Id} deleted", id);
         return true;
     }
 
