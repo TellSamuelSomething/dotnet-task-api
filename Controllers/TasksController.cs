@@ -18,8 +18,8 @@ public class TasksController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll() =>
-        Ok(await _service.GetAllAsync());
+    public async Task<IActionResult> GetAll([FromQuery] TaskQueryParams query) =>
+        Ok(await _service.GetAllAsync(query));
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(int id)

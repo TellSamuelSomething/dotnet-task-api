@@ -14,11 +14,31 @@ public class TaskService
         _db = db;
     }
 
-    public async Task<List<TaskResponse>> GetAllAsync()
+    public async Task<PagedResult<TaskResponse>> GetAllAsync(TaskQueryParams query)
     {
-        return await _db.Tasks
+        var tasks = _db.Tasks.AsQueryable();
+
+        if (query.Completed.HasValue)
+            tasks = tasks.Where(t => t.IsCompleted == query.Completed.Value);
+
+        if (!string.IsNullOrWhiteSpace(query.Search))
+            tasks = tasks.Where(t => t.Title.Contains(query.Search));
+
+        var totalCount = await tasks.CountAsync();
+
+        var items = await tasks
+            .Skip((query.Page - 1) * query.PageSize)
+            .Take(query.PageSize)
             .Select(t => ToResponse(t))
             .ToListAsync();
+
+        return new PagedResult<TaskResponse>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            Page = query.Page,
+            PageSize = query.PageSize
+        };
     }
 
     public async Task<TaskResponse?> GetByIdAsync(int id)
