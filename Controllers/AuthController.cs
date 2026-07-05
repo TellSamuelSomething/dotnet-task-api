@@ -25,8 +25,15 @@ public class AuthController : ControllerBase
         if (user is null)
             return Conflict("Username is already taken.");
 
-        var (token, expiresAt) = _authService.GenerateToken(user.Username);
-        return Ok(new AuthResponse { Token = token, ExpiresAt = expiresAt });
+        var accessToken = _authService.GenerateAccessToken(user.Username);
+        var refreshToken = await _authService.GenerateRefreshTokenAsync(user.Id);
+
+        return Ok(new AuthResponse
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            ExpiresAt = DateTime.UtcNow.AddHours(1)
+        });
     }
 
     [HttpPost("login")]
@@ -37,7 +44,28 @@ public class AuthController : ControllerBase
         if (user is null)
             return Unauthorized("Invalid username or password.");
 
-        var (token, expiresAt) = _authService.GenerateToken(user.Username);
-        return Ok(new AuthResponse { Token = token, ExpiresAt = expiresAt });
+        var accessToken = _authService.GenerateAccessToken(user.Username);
+        var refreshToken = await _authService.GenerateRefreshTokenAsync(user.Id);
+
+        return Ok(new AuthResponse
+        {
+            AccessToken = accessToken,
+            RefreshToken = refreshToken,
+            ExpiresAt = DateTime.UtcNow.AddHours(1)
+        });
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh(RefreshRequest request)
+    {
+        var response = await _authService.RefreshAsync(request.RefreshToken);
+        return response is null ? Unauthorized("Invalid or expired refresh token.") : Ok(response);
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(RefreshRequest request)
+    {
+        await _authService.RevokeAsync(request.RefreshToken);
+        return NoContent();
     }
 }

@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.SignalR;
 using TaskAPI.DTOs;
+using TaskAPI.Hubs;
 using TaskAPI.Models;
 using TaskAPI.Repositories;
 
@@ -8,11 +10,13 @@ public class TaskService
 {
     private readonly ITaskRepository _repo;
     private readonly ILogger<TaskService> _logger;
+    private readonly IHubContext<TaskHub> _hub;
 
-    public TaskService(ITaskRepository repo, ILogger<TaskService> logger)
+    public TaskService(ITaskRepository repo, ILogger<TaskService> logger, IHubContext<TaskHub> hub)
     {
         _repo = repo;
         _logger = logger;
+        _hub = hub;
     }
 
     public async Task<PagedResult<TaskResponse>> GetAllAsync(TaskQueryParams query, string ownerId)
@@ -66,9 +70,11 @@ public class TaskService
         };
 
         await _repo.AddAsync(task);
-
         _logger.LogInformation("Task created with ID {Id}", task.Id);
-        return ToResponse(task);
+
+        var response = ToResponse(task);
+        await _hub.Clients.User(ownerId).SendAsync("TaskCreated", response);
+        return response;
     }
 
     public async Task<TaskResponse?> UpdateAsync(int id, UpdateTaskRequest request, string ownerId)
@@ -90,7 +96,10 @@ public class TaskService
         task.CategoryId = request.CategoryId;
 
         await _repo.UpdateAsync(task);
-        return ToResponse(task);
+
+        var response = ToResponse(task);
+        await _hub.Clients.User(ownerId).SendAsync("TaskUpdated", response);
+        return response;
     }
 
     public async Task<bool> DeleteAsync(int id, string ownerId)
@@ -105,8 +114,9 @@ public class TaskService
         }
 
         await _repo.DeleteAsync(task);
-
         _logger.LogInformation("Task {Id} deleted", id);
+
+        await _hub.Clients.User(ownerId).SendAsync("TaskDeleted", new { id });
         return true;
     }
 

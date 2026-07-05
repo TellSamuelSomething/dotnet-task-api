@@ -5,6 +5,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using TaskAPI.Data;
+using TaskAPI.DTOs;
 using TaskAPI.Models;
 
 namespace TaskAPI.Services;
@@ -44,21 +45,71 @@ public class AuthService
         return user;
     }
 
-    public (string token, DateTime expiresAt) GenerateToken(string username)
+    public string GenerateAccessToken(string username)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var expiresAt = DateTime.UtcNow.AddHours(1);
 
         var token = new JwtSecurityToken(
             issuer: _config["Jwt:Issuer"],
             audience: _config["Jwt:Audience"],
             claims: [new Claim(ClaimTypes.Name, username)],
-            expires: expiresAt,
+            expires: DateTime.UtcNow.AddHours(1),
             signingCredentials: credentials
         );
 
-        return (new JwtSecurityTokenHandler().WriteToken(token), expiresAt);
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public async Task<string> GenerateRefreshTokenAsync(int userId)
+    {
+        var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+
+        _db.RefreshTokens.Add(new RefreshToken
+        {
+            Token = token,
+            UserId = userId,
+            ExpiresAt = DateTime.UtcNow.AddDays(30)
+        });
+
+        await _db.SaveChangesAsync();
+        return token;
+    }
+
+    public async Task<AuthResponse?> RefreshAsync(string refreshToken)
+    {
+        var stored = await _db.RefreshTokens
+            .Include(rt => rt.User)
+            .FirstOrDefaultAsync(rt => rt.Token == refreshToken);
+
+        if (stored is null || stored.IsRevoked || stored.ExpiresAt < DateTime.UtcNow)
+            return null;
+
+        // Rotate: revoke old token, issue new pair
+        stored.IsRevoked = true;
+        await _db.SaveChangesAsync();
+
+        var accessToken = GenerateAccessToken(stored.User.Username);
+        var newRefreshToken = await GenerateRefreshTokenAsync(stored.UserId);
+
+        return new AuthResponse
+        {
+            AccessToken = accessToken,
+            RefreshToken = newRefreshToken,
+            ExpiresAt = DateTime.UtcNow.AddHours(1)
+        };
+    }
+
+    public async Task<bool> RevokeAsync(string refreshToken)
+    {
+        var stored = await _db.RefreshTokens
+            .FirstOrDefaultAsync(rt => rt.Token == refreshToken && !rt.IsRevoked);
+
+        if (stored is null) return false;
+
+        stored.IsRevoked = true;
+        await _db.SaveChangesAsync();
+        return true;
     }
 
     private static string HashPassword(string password)

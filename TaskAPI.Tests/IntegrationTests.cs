@@ -39,7 +39,7 @@ public class IntegrationTests : IClassFixture<WebApplicationFactory<Program>>
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
-        Assert.NotNull(result?.Token);
+        Assert.NotNull(result?.AccessToken);
     }
 
     [Fact]
@@ -118,6 +118,6 @@ public class IntegrationTests : IClassFixture<WebApplicationFactory<Program>>
             Password = "password123"
         });
         var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
-        return result!.Token;
+        return result!.AccessToken;
     }
 }

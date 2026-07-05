@@ -18,7 +18,7 @@ public class TaskServiceTests
             .Options;
         var db = new AppDbContext(options);
         var repo = new TaskRepository(db);
-        var service = new TaskService(repo, NullLogger<TaskService>.Instance);
+        var service = new TaskService(repo, NullLogger<TaskService>.Instance, NullHubContext.Instance);
         return (service, db);
     }
 
