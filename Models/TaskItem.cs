@@ -12,4 +12,5 @@ public class TaskItem
     public string OwnerId { get; set; } = string.Empty;
     public int? CategoryId { get; set; }
     public Category? Category { get; set; }
+    public DateTime? DeletedAt { get; set; }
 }

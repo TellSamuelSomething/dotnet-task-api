@@ -8,12 +8,16 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using TaskAPI.Data;
 using TaskAPI.Hubs;
 using TaskAPI.Jobs;
 using TaskAPI.Middleware;
 using TaskAPI.Repositories;
 using TaskAPI.Services;
+using TaskAPI.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,9 +43,20 @@ builder.Services.AddScoped<TaskService>();
 builder.Services.AddScoped<CategoryService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<OverdueTaskJob>();
+builder.Services.AddSingleton<TaskMetrics>();
 
-// SignalR uses ClaimTypes.Name as the user identifier (same as our JWT)
 builder.Services.AddSingleton<IUserIdProvider, NameUserIdProvider>();
+
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r.AddService("TaskAPI"))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddConsoleExporter())
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddMeter(TaskMetrics.MeterName)
+        .AddConsoleExporter());
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -58,7 +73,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
         };
 
-        // Allow SignalR to read the JWT from the query string (WebSocket transport requires this)
         options.Events = new JwtBearerEvents
         {
             OnMessageReceived = context =>

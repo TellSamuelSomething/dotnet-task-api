@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Logging.Abstractions;
 using TaskAPI.Data;
 using TaskAPI.DTOs;
 using TaskAPI.Repositories;
 using TaskAPI.Services;
+using TaskAPI.Telemetry;
 
 namespace TaskAPI.Tests;
 
@@ -18,7 +21,8 @@ public class TaskServiceTests
             .Options;
         var db = new AppDbContext(options);
         var repo = new TaskRepository(db);
-        var service = new TaskService(repo, NullLogger<TaskService>.Instance, NullHubContext.Instance);
+        var metrics = new TaskMetrics(new ServiceCollection().AddMetrics().BuildServiceProvider().GetRequiredService<IMeterFactory>());
+        var service = new TaskService(repo, NullLogger<TaskService>.Instance, NullHubContext.Instance, metrics);
         return (service, db);
     }
 

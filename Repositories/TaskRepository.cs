@@ -32,15 +32,52 @@ public class TaskRepository : ITaskRepository
     public async Task<TaskItem?> GetByIdAsync(int id, string ownerId) =>
         await _db.Tasks
             .Include(t => t.Category)
-            .FirstOrDefaultAsync(t => t.Id == id && t.OwnerId == ownerId);
+            .FirstOrDefaultAsync(t => t.Id == id && t.OwnerId == ownerId && t.DeletedAt == null);
 
     public async Task<List<TaskItem>> GetOverdueAsync(string ownerId) =>
         await _db.Tasks
             .Include(t => t.Category)
-            .Where(t => t.OwnerId == ownerId && !t.IsCompleted
+            .Where(t => t.OwnerId == ownerId && t.DeletedAt == null && !t.IsCompleted
                 && t.DueDate.HasValue && t.DueDate.Value < DateTime.UtcNow)
             .OrderBy(t => t.DueDate)
             .ToListAsync();
+
+    public async Task<List<TaskItem>> GetTrashAsync(string ownerId) =>
+        await _db.Tasks
+            .Include(t => t.Category)
+            .Where(t => t.OwnerId == ownerId && t.DeletedAt != null)
+            .OrderByDescending(t => t.DeletedAt)
+            .ToListAsync();
+
+    public async Task<TaskItem?> GetByIdFromTrashAsync(int id, string ownerId) =>
+        await _db.Tasks
+            .Include(t => t.Category)
+            .FirstOrDefaultAsync(t => t.Id == id && t.OwnerId == ownerId && t.DeletedAt != null);
+
+    public async Task<TaskStatsResponse> GetStatsAsync(string ownerId)
+    {
+        var now = DateTime.UtcNow;
+
+        var tasks = await _db.Tasks
+            .Where(t => t.OwnerId == ownerId && t.DeletedAt == null)
+            .Select(t => new { t.IsCompleted, t.Priority, t.DueDate })
+            .ToListAsync();
+
+        var total = tasks.Count;
+        var completed = tasks.Count(t => t.IsCompleted);
+
+        return new TaskStatsResponse
+        {
+            Total = total,
+            Completed = completed,
+            Incomplete = total - completed,
+            Overdue = tasks.Count(t => !t.IsCompleted && t.DueDate.HasValue && t.DueDate.Value < now),
+            HighPriority = tasks.Count(t => t.Priority == Priority.High),
+            MediumPriority = tasks.Count(t => t.Priority == Priority.Medium),
+            LowPriority = tasks.Count(t => t.Priority == Priority.Low),
+            CompletionRate = total == 0 ? 0 : Math.Round((double)completed / total * 100, 1)
+        };
+    }
 
     public async Task<TaskItem> AddAsync(TaskItem task)
     {
@@ -55,6 +92,13 @@ public class TaskRepository : ITaskRepository
         await _db.SaveChangesAsync();
     }
 
+    public async Task SoftDeleteAsync(TaskItem task)
+    {
+        task.DeletedAt = DateTime.UtcNow;
+        _db.Tasks.Update(task);
+        await _db.SaveChangesAsync();
+    }
+
     public async Task DeleteAsync(TaskItem task)
     {
         _db.Tasks.Remove(task);
@@ -63,7 +107,7 @@ public class TaskRepository : ITaskRepository
 
     private IQueryable<TaskItem> BuildQuery(TaskQueryParams query, string ownerId)
     {
-        var tasks = _db.Tasks.Where(t => t.OwnerId == ownerId);
+        var tasks = _db.Tasks.Where(t => t.OwnerId == ownerId && t.DeletedAt == null);
 
         if (query.Completed.HasValue)
             tasks = tasks.Where(t => t.IsCompleted == query.Completed.Value);

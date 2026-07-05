@@ -31,6 +31,14 @@ public class TasksController : ControllerBase
     public async Task<IActionResult> GetOverdue() =>
         Ok(await _service.GetOverdueAsync(OwnerId));
 
+    [HttpGet("trash")]
+    public async Task<IActionResult> GetTrash() =>
+        Ok(await _service.GetTrashAsync(OwnerId));
+
+    [HttpGet("stats")]
+    public async Task<IActionResult> GetStats() =>
+        Ok(await _service.GetStatsAsync(OwnerId));
+
     [HttpGet("{id}")]
     [ResponseCache(Duration = 30)]
     public async Task<IActionResult> GetById(int id)
@@ -58,5 +66,12 @@ public class TasksController : ControllerBase
     {
         var deleted = await _service.DeleteAsync(id, OwnerId);
         return deleted ? NoContent() : NotFound();
+    }
+
+    [HttpPost("{id}/restore")]
+    public async Task<IActionResult> Restore(int id)
+    {
+        var restored = await _service.RestoreAsync(id, OwnerId);
+        return restored is null ? NotFound() : Ok(restored);
     }
 }
