@@ -10,4 +10,6 @@ public class TaskItem
     public DateTime? DueDate { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string OwnerId { get; set; } = string.Empty;
+    public int? CategoryId { get; set; }
+    public Category? Category { get; set; }
 }

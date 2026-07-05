@@ -27,6 +27,10 @@ public class TasksController : ControllerBase
     public async Task<IActionResult> GetAll([FromQuery] TaskQueryParams query) =>
         Ok(await _service.GetAllAsync(query, OwnerId));
 
+    [HttpGet("overdue")]
+    public async Task<IActionResult> GetOverdue() =>
+        Ok(await _service.GetOverdueAsync(OwnerId));
+
     [HttpGet("{id}")]
     [ResponseCache(Duration = 30)]
     public async Task<IActionResult> GetById(int id)

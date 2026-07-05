@@ -44,6 +44,13 @@ public class TaskService
         return task is null ? null : ToResponse(task);
     }
 
+    public async Task<List<TaskResponse>> GetOverdueAsync(string ownerId)
+    {
+        _logger.LogInformation("Fetching overdue tasks for user {OwnerId}", ownerId);
+        var tasks = await _repo.GetOverdueAsync(ownerId);
+        return tasks.Select(ToResponse).ToList();
+    }
+
     public async Task<TaskResponse> CreateAsync(CreateTaskRequest request, string ownerId)
     {
         _logger.LogInformation("Creating task '{Title}' for user {OwnerId}", request.Title, ownerId);
@@ -54,6 +61,7 @@ public class TaskService
             Description = request.Description,
             Priority = request.Priority,
             DueDate = request.DueDate,
+            CategoryId = request.CategoryId,
             OwnerId = ownerId
         };
 
@@ -79,6 +87,7 @@ public class TaskService
         task.IsCompleted = request.IsCompleted;
         task.Priority = request.Priority;
         task.DueDate = request.DueDate;
+        task.CategoryId = request.CategoryId;
 
         await _repo.UpdateAsync(task);
         return ToResponse(task);
@@ -109,6 +118,7 @@ public class TaskService
         IsCompleted = t.IsCompleted,
         Priority = t.Priority,
         DueDate = t.DueDate,
-        CreatedAt = t.CreatedAt
+        CreatedAt = t.CreatedAt,
+        Category = t.Category is null ? null : CategoryService.ToResponse(t.Category)
     };
 }

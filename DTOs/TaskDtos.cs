@@ -13,8 +13,8 @@ public class CreateTaskRequest
     public string? Description { get; set; }
 
     public Priority Priority { get; set; } = Priority.Medium;
-
     public DateTime? DueDate { get; set; }
+    public int? CategoryId { get; set; }
 }
 
 public class UpdateTaskRequest
@@ -27,10 +27,9 @@ public class UpdateTaskRequest
     public string? Description { get; set; }
 
     public bool IsCompleted { get; set; }
-
     public Priority Priority { get; set; } = Priority.Medium;
-
     public DateTime? DueDate { get; set; }
+    public int? CategoryId { get; set; }
 }
 
 public class TaskResponse
@@ -42,4 +41,5 @@ public class TaskResponse
     public Priority Priority { get; set; }
     public DateTime? DueDate { get; set; }
     public DateTime CreatedAt { get; set; }
+    public CategoryResponse? Category { get; set; }
 }
