@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using TaskAPI.Data;
 using TaskAPI.DTOs;
+using TaskAPI.Repositories;
 using TaskAPI.Services;
 
 namespace TaskAPI.Tests;
@@ -10,21 +11,21 @@ public class TaskServiceTests
 {
     private const string TestUser = "testuser";
 
-    private static TaskService CreateService(AppDbContext db) =>
-        new(db, NullLogger<TaskService>.Instance);
-
-    private static AppDbContext CreateDb()
+    private static (TaskService service, AppDbContext db) CreateService()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        return new AppDbContext(options);
+        var db = new AppDbContext(options);
+        var repo = new TaskRepository(db);
+        var service = new TaskService(repo, NullLogger<TaskService>.Instance);
+        return (service, db);
     }
 
     [Fact]
     public async Task CreateAsync_ReturnsTaskWithCorrectTitle()
     {
-        var service = CreateService(CreateDb());
+        var (service, _) = CreateService();
 
         var result = await service.CreateAsync(new CreateTaskRequest
         {
@@ -40,7 +41,7 @@ public class TaskServiceTests
     [Fact]
     public async Task GetAllAsync_ReturnsOnlyCompletedTasks_WhenFilterApplied()
     {
-        var service = CreateService(CreateDb());
+        var (service, _) = CreateService();
 
         await service.CreateAsync(new CreateTaskRequest { Title = "Incomplete Task" }, TestUser);
         var created = await service.CreateAsync(new CreateTaskRequest { Title = "Complete Task" }, TestUser);
@@ -59,7 +60,7 @@ public class TaskServiceTests
     [Fact]
     public async Task GetAllAsync_ReturnsPagedResults()
     {
-        var service = CreateService(CreateDb());
+        var (service, _) = CreateService();
 
         for (int i = 1; i <= 15; i++)
             await service.CreateAsync(new CreateTaskRequest { Title = $"Task {i}" }, TestUser);
@@ -74,7 +75,7 @@ public class TaskServiceTests
     [Fact]
     public async Task GetAllAsync_DoesNotReturnOtherUsersTask()
     {
-        var service = CreateService(CreateDb());
+        var (service, _) = CreateService();
 
         await service.CreateAsync(new CreateTaskRequest { Title = "Other user task" }, "otheruser");
 
@@ -86,7 +87,7 @@ public class TaskServiceTests
     [Fact]
     public async Task GetByIdAsync_ReturnsNull_WhenTaskDoesNotExist()
     {
-        var service = CreateService(CreateDb());
+        var (service, _) = CreateService();
 
         var result = await service.GetByIdAsync(999, TestUser);
 
@@ -96,7 +97,7 @@ public class TaskServiceTests
     [Fact]
     public async Task GetByIdAsync_ReturnsNull_WhenTaskBelongsToOtherUser()
     {
-        var service = CreateService(CreateDb());
+        var (service, _) = CreateService();
 
         var created = await service.CreateAsync(new CreateTaskRequest { Title = "Someone else's task" }, "otheruser");
 
@@ -108,7 +109,7 @@ public class TaskServiceTests
     [Fact]
     public async Task DeleteAsync_ReturnsFalse_WhenTaskDoesNotExist()
     {
-        var service = CreateService(CreateDb());
+        var (service, _) = CreateService();
 
         var result = await service.DeleteAsync(999, TestUser);
 
@@ -118,7 +119,7 @@ public class TaskServiceTests
     [Fact]
     public async Task UpdateAsync_ReturnsNull_WhenTaskDoesNotExist()
     {
-        var service = CreateService(CreateDb());
+        var (service, _) = CreateService();
 
         var result = await service.UpdateAsync(999, new UpdateTaskRequest { Title = "Updated" }, TestUser);
 

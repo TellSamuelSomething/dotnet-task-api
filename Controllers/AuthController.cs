@@ -1,3 +1,4 @@
+using Asp.Versioning;
 using Microsoft.AspNetCore.Mvc;
 using TaskAPI.DTOs;
 using TaskAPI.Services;
@@ -5,7 +6,8 @@ using TaskAPI.Services;
 namespace TaskAPI.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class AuthController : ControllerBase
 {
     private readonly AuthService _authService;

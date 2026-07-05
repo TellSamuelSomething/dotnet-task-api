@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TaskAPI.DTOs;
@@ -8,7 +9,8 @@ namespace TaskAPI.Controllers;
 
 [Authorize]
 [ApiController]
-[Route("api/[controller]")]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/[controller]")]
 public class TasksController : ControllerBase
 {
     private readonly TaskService _service;
@@ -21,10 +23,12 @@ public class TasksController : ControllerBase
     private string OwnerId => User.FindFirstValue(ClaimTypes.Name)!;
 
     [HttpGet]
+    [ResponseCache(Duration = 30, VaryByQueryKeys = ["*"])]
     public async Task<IActionResult> GetAll([FromQuery] TaskQueryParams query) =>
         Ok(await _service.GetAllAsync(query, OwnerId));
 
     [HttpGet("{id}")]
+    [ResponseCache(Duration = 30)]
     public async Task<IActionResult> GetById(int id)
     {
         var task = await _service.GetByIdAsync(id, OwnerId);

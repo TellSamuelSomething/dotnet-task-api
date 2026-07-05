@@ -1,18 +1,17 @@
-using Microsoft.EntityFrameworkCore;
-using TaskAPI.Data;
 using TaskAPI.DTOs;
 using TaskAPI.Models;
+using TaskAPI.Repositories;
 
 namespace TaskAPI.Services;
 
 public class TaskService
 {
-    private readonly AppDbContext _db;
+    private readonly ITaskRepository _repo;
     private readonly ILogger<TaskService> _logger;
 
-    public TaskService(AppDbContext db, ILogger<TaskService> logger)
+    public TaskService(ITaskRepository repo, ILogger<TaskService> logger)
     {
-        _db = db;
+        _repo = repo;
         _logger = logger;
     }
 
@@ -21,25 +20,12 @@ public class TaskService
         _logger.LogInformation("Fetching tasks for user {OwnerId} - Page: {Page}, PageSize: {PageSize}, Completed: {Completed}, Search: {Search}",
             ownerId, query.Page, query.PageSize, query.Completed, query.Search);
 
-        var tasks = _db.Tasks.Where(t => t.OwnerId == ownerId);
-
-        if (query.Completed.HasValue)
-            tasks = tasks.Where(t => t.IsCompleted == query.Completed.Value);
-
-        if (!string.IsNullOrWhiteSpace(query.Search))
-            tasks = tasks.Where(t => t.Title.Contains(query.Search));
-
-        var totalCount = await tasks.CountAsync();
-
-        var items = await tasks
-            .Skip((query.Page - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .Select(t => ToResponse(t))
-            .ToListAsync();
+        var items = await _repo.GetAllAsync(query, ownerId);
+        var totalCount = await _repo.CountAsync(query, ownerId);
 
         return new PagedResult<TaskResponse>
         {
-            Items = items,
+            Items = items.Select(ToResponse).ToList(),
             TotalCount = totalCount,
             Page = query.Page,
             PageSize = query.PageSize
@@ -50,7 +36,7 @@ public class TaskService
     {
         _logger.LogInformation("Fetching task {Id} for user {OwnerId}", id, ownerId);
 
-        var task = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.OwnerId == ownerId);
+        var task = await _repo.GetByIdAsync(id, ownerId);
 
         if (task is null)
             _logger.LogWarning("Task {Id} not found for user {OwnerId}", id, ownerId);
@@ -69,8 +55,7 @@ public class TaskService
             OwnerId = ownerId
         };
 
-        _db.Tasks.Add(task);
-        await _db.SaveChangesAsync();
+        await _repo.AddAsync(task);
 
         _logger.LogInformation("Task created with ID {Id}", task.Id);
         return ToResponse(task);
@@ -80,7 +65,7 @@ public class TaskService
     {
         _logger.LogInformation("Updating task {Id} for user {OwnerId}", id, ownerId);
 
-        var task = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.OwnerId == ownerId);
+        var task = await _repo.GetByIdAsync(id, ownerId);
         if (task is null)
         {
             _logger.LogWarning("Task {Id} not found for user {OwnerId}", id, ownerId);
@@ -91,7 +76,7 @@ public class TaskService
         task.Description = request.Description;
         task.IsCompleted = request.IsCompleted;
 
-        await _db.SaveChangesAsync();
+        await _repo.UpdateAsync(task);
         return ToResponse(task);
     }
 
@@ -99,15 +84,14 @@ public class TaskService
     {
         _logger.LogInformation("Deleting task {Id} for user {OwnerId}", id, ownerId);
 
-        var task = await _db.Tasks.FirstOrDefaultAsync(t => t.Id == id && t.OwnerId == ownerId);
+        var task = await _repo.GetByIdAsync(id, ownerId);
         if (task is null)
         {
             _logger.LogWarning("Task {Id} not found for user {OwnerId}", id, ownerId);
             return false;
         }
 
-        _db.Tasks.Remove(task);
-        await _db.SaveChangesAsync();
+        await _repo.DeleteAsync(task);
 
         _logger.LogInformation("Task {Id} deleted", id);
         return true;
