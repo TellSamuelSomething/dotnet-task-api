@@ -52,6 +52,8 @@ public class TaskService
         {
             Title = request.Title,
             Description = request.Description,
+            Priority = request.Priority,
+            DueDate = request.DueDate,
             OwnerId = ownerId
         };
 
@@ -75,6 +77,8 @@ public class TaskService
         task.Title = request.Title;
         task.Description = request.Description;
         task.IsCompleted = request.IsCompleted;
+        task.Priority = request.Priority;
+        task.DueDate = request.DueDate;
 
         await _repo.UpdateAsync(task);
         return ToResponse(task);
@@ -103,6 +107,8 @@ public class TaskService
         Title = t.Title,
         Description = t.Description,
         IsCompleted = t.IsCompleted,
+        Priority = t.Priority,
+        DueDate = t.DueDate,
         CreatedAt = t.CreatedAt
     };
 }

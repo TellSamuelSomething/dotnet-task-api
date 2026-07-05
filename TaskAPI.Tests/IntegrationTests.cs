@@ -29,18 +29,37 @@ public class IntegrationTests : IClassFixture<WebApplicationFactory<Program>>
     }
 
     [Fact]
-    public async Task Login_WithValidCredentials_ReturnsToken()
+    public async Task Register_WithValidDetails_ReturnsToken()
     {
-        var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest
         {
-            Username = "admin",
+            Username = $"user_{Guid.NewGuid():N}",
             Password = "password123"
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
         var result = await response.Content.ReadFromJsonAsync<AuthResponse>();
         Assert.NotNull(result?.Token);
+    }
+
+    [Fact]
+    public async Task Register_WithDuplicateUsername_Returns409()
+    {
+        var username = $"user_{Guid.NewGuid():N}";
+
+        await _client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest
+        {
+            Username = username,
+            Password = "password123"
+        });
+
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest
+        {
+            Username = username,
+            Password = "password123"
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
     }
 
     [Fact]
@@ -48,7 +67,7 @@ public class IntegrationTests : IClassFixture<WebApplicationFactory<Program>>
     {
         var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest
         {
-            Username = "wrong",
+            Username = "nonexistent",
             Password = "wrong"
         });
 
@@ -58,7 +77,7 @@ public class IntegrationTests : IClassFixture<WebApplicationFactory<Program>>
     [Fact]
     public async Task CreateTask_WithToken_Returns201()
     {
-        var token = await GetTokenAsync();
+        var token = await RegisterAndGetTokenAsync();
         _client.DefaultRequestHeaders.Authorization =
             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
 
@@ -70,11 +89,32 @@ public class IntegrationTests : IClassFixture<WebApplicationFactory<Program>>
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 
-    private async Task<string> GetTokenAsync()
+    [Fact]
+    public async Task CreateTask_WithPriorityAndDueDate_ReturnsCorrectValues()
     {
-        var response = await _client.PostAsJsonAsync("/api/v1/auth/login", new LoginRequest
+        var token = await RegisterAndGetTokenAsync();
+        _client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+
+        var dueDate = DateTime.UtcNow.AddDays(7);
+        var response = await _client.PostAsJsonAsync("/api/v1/tasks", new CreateTaskRequest
         {
-            Username = "admin",
+            Title = "High Priority Task",
+            Priority = Models.Priority.High,
+            DueDate = dueDate
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        var result = await response.Content.ReadFromJsonAsync<TaskResponse>();
+        Assert.Equal(Models.Priority.High, result?.Priority);
+        Assert.NotNull(result?.DueDate);
+    }
+
+    private async Task<string> RegisterAndGetTokenAsync()
+    {
+        var response = await _client.PostAsJsonAsync("/api/v1/auth/register", new RegisterRequest
+        {
+            Username = $"user_{Guid.NewGuid():N}",
             Password = "password123"
         });
         var result = await response.Content.ReadFromJsonAsync<AuthResponse>();

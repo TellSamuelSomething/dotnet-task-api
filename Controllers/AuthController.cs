@@ -17,14 +17,27 @@ public class AuthController : ControllerBase
         _authService = authService;
     }
 
-    [HttpPost("login")]
-    public IActionResult Login(LoginRequest request)
+    [HttpPost("register")]
+    public async Task<IActionResult> Register(RegisterRequest request)
     {
-        if (!_authService.ValidateCredentials(request.Username, request.Password))
+        var user = await _authService.RegisterAsync(request.Username, request.Password);
+
+        if (user is null)
+            return Conflict("Username is already taken.");
+
+        var (token, expiresAt) = _authService.GenerateToken(user.Username);
+        return Ok(new AuthResponse { Token = token, ExpiresAt = expiresAt });
+    }
+
+    [HttpPost("login")]
+    public async Task<IActionResult> Login(LoginRequest request)
+    {
+        var user = await _authService.ValidateCredentialsAsync(request.Username, request.Password);
+
+        if (user is null)
             return Unauthorized("Invalid username or password.");
 
-        var (token, expiresAt) = _authService.GenerateToken(request.Username);
-
+        var (token, expiresAt) = _authService.GenerateToken(user.Username);
         return Ok(new AuthResponse { Token = token, ExpiresAt = expiresAt });
     }
 }
