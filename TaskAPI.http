@@ -1,6 +1,40 @@
 @TaskAPI_HostAddress = http://localhost:5120
 
-GET {{TaskAPI_HostAddress}}/weatherforecast/
-Accept: application/json
+### Health check
+GET {{TaskAPI_HostAddress}}/health
 
-###
+### Register (copy the accessToken from the response into @token below)
+POST {{TaskAPI_HostAddress}}/api/v1/auth/register
+Content-Type: application/json
+
+{
+  "username": "demo",
+  "password": "demo1234"
+}
+
+### Sign in
+POST {{TaskAPI_HostAddress}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "demo",
+  "password": "demo1234"
+}
+
+@token = PASTE_ACCESS_TOKEN_HERE
+
+### List tasks
+GET {{TaskAPI_HostAddress}}/api/v1/tasks?page=1&pageSize=10
+Authorization: Bearer {{token}}
+
+### Create a task
+POST {{TaskAPI_HostAddress}}/api/v1/tasks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Write project README",
+  "description": "Cover setup and API",
+  "priority": 2,
+  "dueDate": "2026-12-31T00:00:00"
+}

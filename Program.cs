@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
@@ -20,6 +21,18 @@ using TaskAPI.Services;
 using TaskAPI.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// The signing key is never stored in the repo. Outside Development it must be supplied
+// (for example through the Jwt__Key environment variable) or the app refuses to start.
+if (string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Key"]))
+{
+    if (!builder.Environment.IsDevelopment())
+        throw new InvalidOperationException(
+            "Jwt:Key is not configured. Set the Jwt__Key environment variable to a random secret of at least 32 characters.");
+
+    // Development only: a throwaway key per run, so tokens stop working after a restart.
+    builder.Configuration["Jwt:Key"] = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48));
+}
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
