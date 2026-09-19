@@ -1,95 +1,137 @@
 # dotnet-task-api
 
-A RESTful Task Management API built with ASP.NET Core 10, demonstrating real-world backend development patterns.
+A task management app with an ASP.NET Core 10 REST API and a React frontend, built to demonstrate real-world backend patterns: authentication, layered architecture, tests, CI and background work.
 
-## Tech Stack
+Users register, sign in and manage their own tasks. Every task, category and real-time event is scoped to the signed-in user.
 
-- **ASP.NET Core 10** — Web API framework
-- **Entity Framework Core** — ORM with SQLite database and migrations
-- **JWT Authentication** — Stateless token-based auth
-- **xUnit** — Unit and integration tests
+## Tech stack
+
+**Backend**
+- ASP.NET Core 10 Web API
+- Entity Framework Core with SQLite and migrations
+- JWT access tokens with rotating refresh tokens
+- SignalR for real-time events
+- Hangfire for background jobs
+- OpenTelemetry traces and metrics
+- xUnit unit and integration tests, GitHub Actions CI, Docker
+
+**Frontend** (`frontend/`)
+- React 19, TypeScript, Vite
 
 ## Features
 
-- Full CRUD for tasks (Create, Read, Update, Delete)
-- JWT authentication — all task endpoints are protected
-- User-scoped tasks — each user only sees their own data
-- Filtering by completion status and title search
-- Pagination support
-- Global error handling middleware
-- Rate limiting (30 requests/minute)
-- Response caching on GET endpoints
-- API versioning (`/api/v1/`)
-- Health check endpoint
-- Repository pattern for clean data access separation
-- Docker support
+- Sign up, sign in, refresh and sign out, with PBKDF2 password hashing
+- Task CRUD with priority, due date and category
+- Filtering by status, priority, category, due date and title search, plus sorting and pagination
+- Soft delete with a trash list and restore
+- Overdue task list and task statistics
+- Categories per user
+- Real-time events over SignalR: `TaskCreated`, `TaskUpdated`, `TaskDeleted`, `TaskRestored`
+- Hourly background job that logs overdue tasks per user
+- Global error handling middleware, rate limiting (30 requests/minute), response caching, API versioning (`/api/v1/`) and a health check
+- Repository and service layers separating data access from business logic
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
-- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 
-### Run locally
+- [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
+- [Node.js](https://nodejs.org/) 20.19+ or 22.12+ (frontend only)
+
+### Run the API
 
 ```bash
 git clone https://github.com/TellSamuelSomething/dotnet-task-api.git
 cd dotnet-task-api
-dotnet run
+dotnet run --launch-profile http
 ```
 
-Open `https://localhost:{port}/swagger` to explore the API.
+The API listens on `http://localhost:5120`. In Development, Swagger is at `http://localhost:5120/swagger` and the Hangfire dashboard at `/hangfire`. The SQLite database (`tasks.db`) is created and migrated automatically on startup.
+
+### Run the frontend
+
+With the API running, in a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. The dev server proxies `/api` calls to the API on port 5120.
 
 ### Run with Docker
 
 ```bash
 docker build -t dotnet-task-api .
-docker run -p 8080:8080 dotnet-task-api
+docker run -p 8080:8080 -e Jwt__Key="a-random-secret-of-at-least-32-characters" dotnet-task-api
 ```
 
-### Run tests
+The container runs in Production mode, so Swagger and the Hangfire dashboard are off, and the SQLite database lives inside the container.
+
+### JWT signing key
+
+No secret is stored in the repo. In Development the API generates a throwaway signing key on every start, so signing in again is needed after a restart (the frontend does this automatically through the refresh token). In any other environment the API refuses to start unless `Jwt__Key` is set.
+
+### Run the tests
 
 ```bash
 dotnet test TaskAPI.Tests/TaskAPI.Tests.csproj
 ```
 
-## API Endpoints
+## API overview
+
+All endpoints below are under `/api/v1`. Everything except register, login and refresh requires a `Bearer` token.
 
 ### Auth
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/auth/login` | Login and receive a JWT token |
+| POST | `/auth/register` | Create an account and receive tokens |
+| POST | `/auth/login` | Sign in and receive tokens |
+| POST | `/auth/refresh` | Exchange a refresh token for a new token pair |
+| POST | `/auth/logout` | Revoke a refresh token |
 
-### Tasks (requires Bearer token)
+### Tasks
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/v1/tasks` | Get all tasks (supports filtering & pagination) |
-| GET | `/api/v1/tasks/{id}` | Get a single task |
-| POST | `/api/v1/tasks` | Create a task |
-| PUT | `/api/v1/tasks/{id}` | Update a task |
-| DELETE | `/api/v1/tasks/{id}` | Delete a task |
+| GET | `/tasks` | List tasks with filtering, sorting and pagination |
+| GET | `/tasks/{id}` | Get one task |
+| POST | `/tasks` | Create a task |
+| PUT | `/tasks/{id}` | Update a task |
+| DELETE | `/tasks/{id}` | Move a task to the trash (soft delete) |
+| POST | `/tasks/{id}/restore` | Restore a task from the trash |
+| GET | `/tasks/overdue` | List overdue tasks |
+| GET | `/tasks/trash` | List trashed tasks |
+| GET | `/tasks/stats` | Completion and priority statistics |
 
-### Query Parameters for GET /api/v1/tasks
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `completed` | bool | Filter by completion status |
-| `search` | string | Search by title |
-| `page` | int | Page number (default: 1) |
-| `pageSize` | int | Items per page (default: 10) |
+Query parameters for `GET /tasks`: `completed`, `search`, `priority`, `dueBefore`, `categoryId`, `sortBy` (`title`, `dueDate`, `priority`, `createdAt`), `order` (`asc` or `desc`), `page` and `pageSize`.
+
+### Categories
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/categories` | List your categories |
+| POST | `/categories` | Create a category |
+| DELETE | `/categories/{id}` | Delete a category |
 
 ### Other
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/health` | Health check |
 
-## Usage Example
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Health check, including the database |
+| `/hubs/tasks` | SignalR hub for real-time task events (pass the token as `access_token`) |
+
+## Usage example
 
 ```bash
-# 1. Login
-curl -X POST https://localhost:{port}/api/v1/auth/login \
+# Register (returns an access token and a refresh token)
+curl -X POST http://localhost:5120/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"username": "admin", "password": "password123"}'
+  -d '{"username": "demo", "password": "demo1234"}'
 
-# 2. Use the token
-curl https://localhost:{port}/api/v1/tasks \
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+# Use the access token
+curl http://localhost:5120/api/v1/tasks \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
