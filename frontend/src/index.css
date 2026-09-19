@@ -1,0 +1,304 @@
+:root {
+  --bg: #f5f6f8;
+  --surface: #ffffff;
+  --text: #1c2026;
+  --muted: #667085;
+  --border: #dde1e7;
+  --accent: #2f5bea;
+  --accent-text: #ffffff;
+  --danger: #c62828;
+  --low: #2e7d32;
+  --medium: #b26a00;
+  --high: #c62828;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c;
+    --surface: #1d2129;
+    --text: #e7eaf0;
+    --muted: #98a2b3;
+    --border: #2c333f;
+    --accent: #6f8dff;
+    --accent-text: #0e1116;
+    --danger: #ef6b6b;
+    --low: #66bb6a;
+    --medium: #ffb74d;
+    --high: #ef6b6b;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+h1,
+h2 {
+  margin: 0 0 0.75rem;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+}
+
+p {
+  margin: 0;
+}
+
+.app {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.app-header h1 {
+  margin: 0;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-width: 24rem;
+  margin: 2rem auto;
+}
+
+.auth-card h2 {
+  margin: 0;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+input,
+textarea,
+select {
+  font: inherit;
+  font-weight: 400;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.hint,
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 0.9rem;
+}
+
+.btn {
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 0.45rem 0.9rem;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--border);
+}
+
+.btn-link {
+  background: none;
+  color: var(--accent);
+  padding: 0;
+}
+
+.tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.task-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.row > label {
+  flex: 1;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.task {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.task > input[type='checkbox'] {
+  margin-top: 0.3rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent);
+}
+
+.task-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.task-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.task.done .task-title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+}
+
+.priority-0 {
+  color: var(--low);
+}
+
+.priority-1 {
+  color: var(--medium);
+}
+
+.priority-2 {
+  color: var(--high);
+}
+
+.overdue {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.task-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+@media (max-width: 30rem) {
+  .row {
+    flex-direction: column;
+  }
+
+  .task {
+    flex-wrap: wrap;
+  }
+
+  .task-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
